@@ -1,5 +1,6 @@
 import numpy as np
 import pathlib
+import os
 from pymatgen.core import Structure, Molecule, Lattice
 from pymatgen.core.periodic_table import Element
 from pymatgen.io.vasp.inputs import Poscar
@@ -17,7 +18,7 @@ def poscar_to_mol(fp):
     mol = Molecule(atoms_pos.structure.species, atoms_pos.structure.cart_coords)
     return mol
 
-def create_feff_inp(atoms, target_species=None, target_dir="", **kwargs):
+def create_feff_input(atoms, target_species=None, target_dir="", **kwargs):
     # 3 options -> if atoms is molecule object; if atoms is poscar file; 
 
 
@@ -61,6 +62,7 @@ def create_feff_inp(atoms, target_species=None, target_dir="", **kwargs):
     # then make subdirectory in target_dir for each site, named "target_Z_site_N_edge_K"
     ind = [i for i, j in enumerate(mol.species) if j is target_species]
 
+    root_path = pathlib.Path(target_dir)
     for i, j in enumerate(ind):
         fpot = Potential(mol, absorbing_atom=j)
         fatoms = Atoms(mol, absorbing_atom=j, radius=50)
@@ -70,10 +72,34 @@ def create_feff_inp(atoms, target_species=None, target_dir="", **kwargs):
                     + fpot.__str__() + "\n\n" \
                     + fatoms.__str__()
 
-        out_dir = target_dir + "target_" + target_species.name \
-                    + "_site_" + str(i) + "_edge_" + tags["EDGE"] + "/"
+        out_dir = root_path.joinpath("target_" + target_species.name \
+                    + "_site_" + str(i) + "_edge_" + tags["EDGE"])
                 
         pathlib.Path(out_dir).mkdir(parents=True, exist_ok=True)
-        with open(out_dir+"feff.inp", "w+") as f:
+        with open(out_dir.joinpath("feff.inp"), "w+") as f:
             f.write(out_str)
             f.close()
+
+def listfiles(folder):
+    # generator for files in subdirectory
+    # https://stackoverflow.com/questions/12420779/simplest-way-to-get-the-equivalent-of-find-in-python
+    for root, folders, files in os.walk(folder):
+        for filename in folders + files:
+            yield os.path.join(root, filename)
+
+def find_poscars_make_inputs(source_dir, target_root_dir, target_species):
+    fps = [f for f in listfiles(source_dir) if f.split("/")[-1]=="POSCAR"]
+
+    root_path = pathlib.Path(target_root_dir)
+    for f in fps:
+        full_path = f.split("/")
+        sub_dir = ""
+        for folder in full_path[:-1]:
+            sub_dir += folder + "_"
+        
+        sub_dir += "feff"
+
+        target_path = root_path.joinpath(sub_dir)
+
+        for t in target_species:
+            create_feff_input(f, t, target_path)
