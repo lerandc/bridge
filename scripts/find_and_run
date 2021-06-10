@@ -1,0 +1,13 @@
+#!/bin/bash
+find . -name feff.inp | cut -d"/" -f4 --complement > dir_list
+
+cwd=$(pwd)
+num_dir=$(wc -l < dir_list)
+
+for ((i=1; i<=$num_dir; i++))
+do
+	cd $(sed "${i}q;d" dir_list)
+	/usr/bin/time -o time_log -a feff
+	cd $cwd
+done
+
