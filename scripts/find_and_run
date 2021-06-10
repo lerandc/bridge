@@ -7,7 +7,8 @@ num_dir=$(wc -l < dir_list)
 for ((i=1; i<=$num_dir; i++))
 do
 	cd $(sed "${i}q;d" dir_list)
-	/usr/bin/time -o time_log -a feff
+	echo "Running $i of $num_dir in $(pwd)"
+	/usr/bin/time -o time_log -a feff >stdout 2>stderr
 	cd $cwd
 done
 
