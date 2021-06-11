@@ -6,7 +6,8 @@ from pymatgen.core.periodic_table import Element
 from pymatgen.io.vasp.inputs import Poscar
 from pymatgen.io.vasp.outputs import Vasprun
 from pymatgen.io.feff.outputs import LDos
-from pymatgen.io.feff.inputs import Atoms, Header, Potential, Tags
+from pymatgen.io.feff.inputs import Atoms, Header, Tags
+from .feff import MolPotential
 
 def poscar_to_xyz(fp, output="structure.xyz"):
     atoms_pos = Poscar.from_file(fp)
@@ -59,16 +60,22 @@ def create_feff_input(atoms, target_species=None, target_dir="", **kwargs):
     ftags = Tags(tags)
 
     # TODO: reduce over unique site indices-- is there a pymatgen routine for molecule site equivalence?
-    # then make subdirectory in target_dir for each site, named "target_Z_site_N_edge_K"
     ind = [i for i, j in enumerate(mol.species) if j is target_species]
 
     root_path = pathlib.Path(target_dir)
     for i, j in enumerate(ind):
-        fpot = Potential(mol, absorbing_atom=j)
+        fpot = MolPotential(mol, absorbing_atom=j)
         fatoms = Atoms(mol, absorbing_atom=j, radius=50)
 
+        # add overlap correction for hydrogen as per feff guidebook pg 96/97
+        if "H" in fpot.pot_dict:
+            folp_string = "FOLP " + str(fpot.pot_dict["H"]) + " 0.8\n"
+        else:
+            folp_string = ""
+
         out_str = fheader.__str__() + "\n\n" \
-                    + ftags.__str__() + "\n\n" \
+                    + ftags.__str__() + "\n" \
+                    + folp_string + "\n" \
                     + fpot.__str__() + "\n\n" \
                     + fatoms.__str__()
 
