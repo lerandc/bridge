@@ -6,8 +6,8 @@ from pymatgen.core.periodic_table import Element
 from pymatgen.io.vasp.inputs import Poscar
 from pymatgen.io.vasp.outputs import Vasprun
 from pymatgen.io.feff.outputs import LDos
-from pymatgen.io.feff.inputs import Atoms, Header, Tags
-from .feff import MolPotential
+from pymatgen.io.feff.inputs import Header, Tags
+from .feff import MolPotential, MolAtoms
 
 def poscar_to_xyz(fp, output="structure.xyz"):
     atoms_pos = Poscar.from_file(fp)
@@ -22,10 +22,11 @@ def poscar_to_mol(fp):
 def create_feff_input(atoms, target_species=None, target_dir="", **kwargs):
     # 3 options -> if atoms is molecule object; if atoms is poscar file; 
 
-
     if isinstance(atoms, Molecule):
         mol = atoms
     elif (atoms.split("/")[-1] == "POSCAR"):
+        mol = poscar_to_mol(atoms)
+    elif (atoms.split("/")[-1] == "CONTCAR"):
         mol = poscar_to_mol(atoms)
     elif (atoms.split(".")[-1] == "xyz"):
         mol = Molecule.from_file(atoms)
@@ -65,7 +66,7 @@ def create_feff_input(atoms, target_species=None, target_dir="", **kwargs):
     root_path = pathlib.Path(target_dir)
     for i, j in enumerate(ind):
         fpot = MolPotential(mol, absorbing_atom=j)
-        fatoms = Atoms(mol, absorbing_atom=j, radius=50)
+        fatoms = MolAtoms(mol, absorbing_atom=j, radius=50)
 
         # add overlap correction for hydrogen as per feff guidebook pg 96/97
         if "H" in fpot.pot_dict:
@@ -94,8 +95,8 @@ def listfiles(folder):
         for filename in folders + files:
             yield os.path.join(root, filename)
 
-def find_poscars_make_inputs(source_dir, target_root_dir, target_species):
-    fps = [f for f in listfiles(source_dir) if f.split("/")[-1]=="POSCAR"]
+def find_vasp_outputs_make_inputs(source_dir, target_root_dir, target_species, file="CONTCAR", **kwargs):
+    fps = [f for f in listfiles(source_dir) if f.split("/")[-1]==file]
 
     root_path = pathlib.Path(target_root_dir)
     for f in fps:
@@ -109,4 +110,4 @@ def find_poscars_make_inputs(source_dir, target_root_dir, target_species):
         target_path = root_path.joinpath(sub_dir)
 
         for t in target_species:
-            create_feff_input(f, t, target_path)
+            create_feff_input(f, t, target_path, **kwargs)

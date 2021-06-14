@@ -4,9 +4,8 @@ from pymatgen.core.periodic_table import Element
 from pymatgen.io.vasp.inputs import Poscar
 from pymatgen.io.vasp.outputs import Vasprun
 from pymatgen.io.feff.outputs import LDos
-from pymatgen.io.feff.inputs import  Potential, get_atom_map, get_absorbing_atom_symbol_index
+from pymatgen.io.feff.inputs import  Atoms, Potential, get_atom_map, get_absorbing_atom_symbol_index
 from tabulate import tabulate
-
 
 class MolPotential(Potential):
     """
@@ -76,3 +75,28 @@ class MolPotential(Potential):
         ipotlist = "".join(["POTENTIALS\n", ipotlist])
 
         return ipotlist
+
+class MolAtoms(Atoms):
+
+    def __init__(self, struct, absorbing_atom, radius):
+        """
+        Args:
+            struct: Structure or Molecule object
+            absorbing_atom (str/int): Symbol for absorbing atom or site index
+            radius (float): radius of the atom cluster in Angstroms.
+        """
+        if struct.is_ordered:
+            self.struct = struct
+            if isinstance(self.struct, Structure):
+                self.pot_dict = get_atom_map(struct)
+            elif isinstance(self.struct, Molecule):
+                mol_copy = self.struct.copy()
+                mol_copy.remove_sites([absorbing_atom])
+                self.pot_dict = get_atom_map(mol_copy)
+        else:
+            raise ValueError("Structure with partial occupancies cannot be " "converted into atomic coordinates!")
+
+
+        self.absorbing_atom, self.center_index = get_absorbing_atom_symbol_index(absorbing_atom, struct)
+        self.radius = radius
+        self._cluster = self._set_cluster()
