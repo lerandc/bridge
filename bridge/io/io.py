@@ -7,8 +7,11 @@ import seaborn as sns
 from pymatgen.io.vasp import Vasprun
 from pymatgen.electronic_structure.core import Spin
 
-def plot_feff_edge(base_dir, target):
+def plot_feff_edge(base_dir, target, save):
     subfolders = [p for p in pathlib.Path(base_dir).iterdir() if "target_" + target in p.__str__()]
+
+    fig = plt.figure()
+    ax = fig.gca()
     for f in subfolders:
         df = pd.read_csv(f.joinpath('xmu.dat'), skiprows=25,delimiter=r"\s+", 
                 names=['omega', 'e','k','mu','mu0','chi'])
@@ -20,11 +23,18 @@ def plot_feff_edge(base_dir, target):
     structure = (pathlib.Path(base_dir).__str__().split("/")[-1]).rsplit("_",1)[0]
     plt.title(target + " " + edge + " edge for " + structure)
     plt.legend()
-    plt.show()
+    
+    if save:
+        plt.savefig(structure + "_xmu_" + target + "_" + edge + "_edge.jpg")
+    else:
+        plt.show()
 
 
-def plot_feff_absorber_dos(base_dir, target):
+def plot_feff_absorber_dos(base_dir, target, save=False):
     subfolders = [p for p in pathlib.Path(base_dir).iterdir() if "target_" + target in p.__str__()]
+
+    fig = plt.figure()
+    ax = fig.gca()
     for f in subfolders:
         df = pd.read_csv(f.joinpath('ldos00.dat'), skiprows=11,delimiter=r"\s+", 
                 names=['e', 'sDOS','pDOS','dDOS','fDOS'])
@@ -34,9 +44,13 @@ def plot_feff_absorber_dos(base_dir, target):
 
     edge = f.__str__().split("_")[-1]
     structure = (pathlib.Path(base_dir).__str__().split("/")[-1]).rsplit("_",1)[0]
-    plt.title("Absorber DOS of " + target + " " + edge + " edge for " + structure)
+    ax.set_title("Absorber DOS of " + target + " " + edge + " edge for " + structure)
     plt.legend()
-    plt.show()
+
+    if save:
+        plt.savefig(structure+"_feff_dos_absorber_"+target+"_" + edge + "_edge.jpg")
+    else:
+        plt.show()
 
 def get_pot_dict(fp):
     """ fp is path to feff.inp"""
@@ -56,26 +70,34 @@ def get_pot_dict(fp):
 
     return pot_dict
 
-def plot_feff_dos(base_dir, target, elem):
+def plot_feff_dos(base_dir, target, save=False):
 
     subfolders = [p for p in pathlib.Path(base_dir).iterdir() if "target_" + target in p.__str__()]
 
     pot_dict = get_pot_dict(subfolders[0].joinpath("feff.inp"))
-    for f in subfolders:
-        ldos_path = "ldos" + "%02i" % int(pot_dict[elem]) +".dat"
-        df = pd.read_csv(f.joinpath(ldos_path), skiprows=11,delimiter=r"\s+", 
-                names=['e', 'sDOS','pDOS','dDOS','fDOS'])
-        df['DOS'] = df.sDOS + df.pDOS + df.dDOS + df.fDOS
-        lbl = re.search("site_[0-9]+_", f.__str__()).group(0).split('_')[1]
-        sns.lineplot(data=df, x='e',y='DOS',label=target+" #"+lbl)
 
-    edge = f.__str__().split("_")[-1]
-    structure = (pathlib.Path(base_dir).__str__().split("/")[-1]).rsplit("_",1)[0]
-    plt.title(elem + " DOS of " + target + " " + edge + " edge for " + structure)
-    plt.legend()
-    plt.show()
+    for elem in pot_dict.keys():
+        fig = plt.figure()
+        ax = fig.gca()
+        for f in subfolders:
+            ldos_path = "ldos" + "%02i" % int(pot_dict[elem]) +".dat"
+            df = pd.read_csv(f.joinpath(ldos_path), skiprows=11,delimiter=r"\s+", 
+                    names=['e', 'sDOS','pDOS','dDOS','fDOS'])
+            df['DOS'] = df.sDOS + df.pDOS + df.dDOS + df.fDOS
+            lbl = re.search("site_[0-9]+_", f.__str__()).group(0).split('_')[1]
+            sns.lineplot(data=df, x='e',y='DOS',label=target+" #"+lbl)
 
-def plot_vasp_dos(directory):
+        edge = f.__str__().split("_")[-1]
+        structure = (pathlib.Path(base_dir).__str__().split("/")[-1]).rsplit("_",1)[0]
+        ax.set_title(elem + " DOS of " + target + " " + edge + " edge for " + structure)
+        plt.legend()
+
+        if save:
+            plt.savefig(structure + "_feff_dos_" + elem + "_" + target + "_" + edge + "_edge.jpg")
+        else:
+            plt.show()
+
+def plot_vasp_dos(directory, save=False):
     dosrun = Vasprun(directory+'vasprun.xml')
 
     species = set(dosrun.final_structure.species)
@@ -84,19 +106,25 @@ def plot_vasp_dos(directory):
     for s in species:
         indices[s] = [i for i, x in enumerate(dosrun.final_structure.species) if x == s]
     
+        fig = plt.figure()
+        ax = fig.gca()
         for i in indices[s]:
             yup=dosrun.complete_dos.get_site_dos(dosrun.complete_dos.structure[i]).densities[Spin.up]
             ydown = dosrun.complete_dos.get_site_dos(dosrun.complete_dos.structure[i]).densities[Spin.down]
             y=yup+ydown
             x=dosrun.tdos.energies - dosrun.efermi
-            plt.plot(x, y, label='{}'.format(str(i)))
+            ax.plot(x, y, label='{}'.format(str(i)))
         
+        dir_tmp = pathlib.Path(directory).__str__().rsplit("/",2)[-2:]
         sname = ""
-        for i in directory.rsplit("/",2)[-2:]:
-            sname+=i
+        sname += dir_tmp[0] + "_" + dir_tmp[1]
 
-        plt.title(s.name + " DOS for " +  sname + " calculated with VASP, PBE")
-        plt.xlabel('e')
-        plt.ylabel('DOS')
+        ax.set_title(s.name + " DOS for " +  sname + " calculated with VASP, PBE")
+        ax.set_xlabel('e')
+        ax.set_ylabel('DOS')
         plt.legend()
-        plt.show()
+
+        if save:
+            plt.savefig(sname + "_vasp_dos_" + s.name + ".jpg")
+        else:
+            plt.show()
