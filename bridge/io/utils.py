@@ -50,7 +50,7 @@ def create_feff_input(atoms, target_species=None, target_dir="", **kwargs):
             "FMS": "9 0",
             "LDOS": "-30.0 30.0 0.1",
             "EDGE": "K",
-            "COREHOLE": "RPA",
+            "COREHOLE": "NONE",
             "XANES":""
             }
 
@@ -81,22 +81,37 @@ def create_feff_input(atoms, target_species=None, target_dir="", **kwargs):
                     + fatoms.__str__()
 
         out_dir = root_path.joinpath("target_" + target_species.name \
-                    + "_site_" + str(i) + "_edge_" + tags["EDGE"])
+                    + "_site_" + str(i))
                 
         pathlib.Path(out_dir).mkdir(parents=True, exist_ok=True)
-        with open(out_dir.joinpath("feff.inp"), "w+") as f:
+        with open(out_dir.joinpath("feff_" + tags["EDGE"] +".inp"), "w+") as f:
             f.write(out_str)
             f.close()
 
-def listfiles(folder):
+
+def is_hidden(path):
+
+    for x in str(path).split("/"):
+        if x.startswith(".") and x != "..":
+            return True
+
+    return False
+
+def listfiles(folder, include_hidden=False):
     # generator for files in subdirectory
-    # https://stackoverflow.com/questions/12420779/simplest-way-to-get-the-equivalent-of-find-in-python
-    for root, folders, files in os.walk(folder):
-        for filename in folders + files:
-            yield os.path.join(root, filename)
+
+    print("something")
+    if include_hidden:
+        print("here?")
+        yield [x for x in pathlib.Path(folder).glob("**/*")]
+    else:
+        out = [x for x in pathlib.Path(folder).glob("**/*") if not is_hidden(x)]
+        print("here!")
+        print(out)
+        return out
 
 def find_vasp_outputs_make_inputs(source_dir, target_root_dir, target_species, file="CONTCAR", **kwargs):
-    fps = [f for f in listfiles(source_dir) if f.split("/")[-1]==file]
+    fps = [f for f in listfiles(source_dir)[0] if f.split("/")[-1]==file]
 
     root_path = pathlib.Path(target_root_dir)
     for f in fps:
