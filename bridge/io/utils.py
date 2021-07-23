@@ -24,7 +24,13 @@ def create_feff_input(atoms, target_species=None, target_dir="", **kwargs):
 
     if isinstance(atoms, Molecule):
         mol = atoms
-    elif (atoms.split("/")[-1] == "POSCAR"):
+    else:
+        try:
+            atoms = str(atoms)
+        except:
+            print("check atoms input")
+
+    if (atoms.split("/")[-1] == "POSCAR"):
         mol = poscar_to_mol(atoms)
     elif (atoms.split("/")[-1] == "CONTCAR"):
         mol = poscar_to_mol(atoms)
@@ -41,7 +47,9 @@ def create_feff_input(atoms, target_species=None, target_dir="", **kwargs):
                 print("Could not convert target species to element class.")
 
     # need a structure only to make header file so pymatgen can leader read the feff output
-    lvecs = np.max(mol.cart_coords, axis=0)
+    lvecs = np.max(mol.cart_coords, axis=0)\
+           -np.min(np.vstack([mol.cart_coords, [[0,0,0]]]), axis=0)
+    lvecs*=1.02
     struct = mol.get_boxed_structure(lvecs[0], lvecs[1], lvecs[2])
 
     tags = {"CONTROL": "1 1 1 1 1 1",
@@ -56,6 +64,9 @@ def create_feff_input(atoms, target_species=None, target_dir="", **kwargs):
 
     for key in kwargs:
         tags[key] = kwargs[key]
+
+    if "EXAFS" in kwargs:
+        del tags["XANES"]
 
     fheader = Header(struct)
     ftags = Tags(tags)
@@ -84,9 +95,14 @@ def create_feff_input(atoms, target_species=None, target_dir="", **kwargs):
                     + "_site_" + str(i))
                 
         pathlib.Path(out_dir).mkdir(parents=True, exist_ok=True)
-        with open(out_dir.joinpath("feff_" + tags["EDGE"] +".inp"), "w+") as f:
-            f.write(out_str)
-            f.close()
+        if "EXAFS" in tags.keys():
+            with open(out_dir.joinpath("feff_" +  tags["EDGE"] + "EXAFS"  +".inp"), "w+") as f:
+                f.write(out_str)
+                f.close()
+        else:
+            with open(out_dir.joinpath("feff_" + tags["EDGE"] +".inp"), "w+") as f:
+                f.write(out_str)
+                f.close()
 
 
 def is_hidden(path):
@@ -100,22 +116,19 @@ def is_hidden(path):
 def listfiles(folder, include_hidden=False):
     # generator for files in subdirectory
 
-    print("something")
     if include_hidden:
-        print("here?")
-        yield [x for x in pathlib.Path(folder).glob("**/*")]
+        out = [x for x in pathlib.Path(folder).glob("**/*")]
+        return out
     else:
         out = [x for x in pathlib.Path(folder).glob("**/*") if not is_hidden(x)]
-        print("here!")
-        print(out)
         return out
 
 def find_vasp_outputs_make_inputs(source_dir, target_root_dir, target_species, file="CONTCAR", **kwargs):
-    fps = [f for f in listfiles(source_dir)[0] if f.split("/")[-1]==file]
+    fps = [f for f in listfiles(source_dir) if str(f).split("/")[-1]==file]
 
     root_path = pathlib.Path(target_root_dir)
     for f in fps:
-        full_path = f.split("/")
+        full_path = str(f).split("/")
         sub_dir = ""
         for folder in full_path[:-1]:
             sub_dir += folder + "_"
@@ -123,6 +136,25 @@ def find_vasp_outputs_make_inputs(source_dir, target_root_dir, target_species, f
         sub_dir += "feff"
 
         target_path = root_path.joinpath(sub_dir)
+
+        for t in target_species:
+            create_feff_input(f, t, target_path, **kwargs)
+
+def find_xyz_make_inputs(source_dir, target_root_dir, target_species, **kwargs):
+    fps = [f for f in listfiles(source_dir) if ".xyz" in str(f).split("/")[-1]]
+
+    root_path = pathlib.Path(target_root_dir)
+    for f in fps:
+        full_path = str(f).split("/")
+        sub_dir = ""
+        for folder in full_path[1:-1]:
+            sub_dir += folder + "_"
+        
+        sub_dir += "feff"
+        sub_sub_dir = full_path[-1].rsplit("_",1)[0] + "_feff"
+
+        target_path = root_path.joinpath(sub_dir)
+        target_path = target_path.joinpath(sub_sub_dir)
 
         for t in target_species:
             create_feff_input(f, t, target_path, **kwargs)
