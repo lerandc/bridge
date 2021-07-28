@@ -1,6 +1,10 @@
 import numpy as np
 import pathlib
+import gzip
+import shutil
 import os
+import re
+import tqdm
 from pymatgen.core import Structure, Molecule, Lattice
 from pymatgen.core.periodic_table import Element
 from pymatgen.io.vasp.inputs import Poscar
@@ -158,3 +162,53 @@ def find_xyz_make_inputs(source_dir, target_root_dir, target_species, **kwargs):
 
         for t in target_species:
             create_feff_input(f, t, target_path, **kwargs)
+
+def search_keep(f, keep):
+    """
+    Compare file path to regex expressions to see if keeping
+    """
+    for k in keep:
+        result = re.search(k, str(f))
+        if result is not None:
+            return True 
+
+    return False
+
+def make_archives_for_transfer(source_dir, keep=["L2", "L3", "ldos[0-9]+.dat"]):
+    """
+    Finds all subdirectories with feff outputs, then for each folder:
+    1) Crawl folder and delete hidden files
+    2) Compress every file individually execept feff inputs, output data
+    3) Delete uncompressed files
+    """
+    all_files = [x for x in listfiles(source_dir) if "xmu.dat" in str(x)]
+    all_folders = [x.parent.parent for x in all_files]
+    all_folders = sorted(list(set(all_folders)))
+
+    for folder in tqdm.tqdm(all_folders):
+        sub_files = [x for x in listfiles(folder, include_hidden=True)]
+        for f in sub_files:
+            # if hidden, delete
+            try:
+                if is_hidden(f):
+                    f.unlink()
+                elif not search_keep(f,keep):
+                    # if not feff input, xmu.dat, or ldos*.dat
+                    if not (".gz" in str(f)):
+                        with open(f, 'rb') as f_in:
+                            with gzip.open(str(f)+".gz", 'wb') as f_out:
+                                shutil.copyfileobj(f_in, f_out)
+                        f.unlink()
+            except:
+                print("Failed  to process " + str(f))
+
+def verify_archives_complete(source_dir, keep=["L2", "L3", "ldos[0-9]+.dat"]):
+    all_files = [x for x in listfiles(source_dir) if "xmu.dat" in str(x)]
+    all_folders = [x.parent.parent for x in all_files]
+    all_folders = sorted(list(set(all_folders)))
+
+    for folder in tqdm.tqdm(all_folders):
+        sub_files = [x for x in listfiles(folder, include_hidden=True)]
+        for f in sub_files:
+            if (not search_keep(f,keep)) and not (".gz" in str(f)):
+                print("Failed  to process " + str(f))
