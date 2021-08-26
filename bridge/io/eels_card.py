@@ -54,6 +54,31 @@ class EELS():
         for key, value in kwargs.items():
             setattr(self, key, value)
 
+    def __repr__(self):
+        attrs = ["spectrum", "energy", "alpha", "beta", "Nra", "Dxy", "K", 
+                "kmesh", "aver", "cross", "relat"]
+
+        repr_dict = {}
+        for a in attrs:
+            repr_dict[a] = getattr(self, a)
+
+        return json.dumps(repr_dict)
+
+    def __str__(self):
+        out_str = self.spectrum + " " \
+                + str(self.kmesh[0]) + " " + str(self.kmesh[1]) + " " + str(self.kmesh[2]) + "\n" \
+                + str(self.energy) + " " \
+                + str(int(self.aver)) + " " + str(int(self.cross)) + " " + str(int(self.relat)) + "\n"
+
+        if not self.aver:
+            out_str += str(self.K[0]) + " " + str(self.K[1]) + " " + str(self.K[2]) + "\n"
+
+        out_str += str(self.beta) + " " + str(self.alpha) + "\n" \
+                + str(self.Nra[0]) + " " + str(self.Nra[1]) + "\n" \
+                + str(self.Dxy[0]) + " " + str(self.Dxy[1]) + "\n"
+
+        return out_str
+
     @property
     def spectrum(self):
         return self._spectrum
@@ -154,27 +179,3 @@ class EELS():
     def relat(self, val):
         self._relat = bool(val)
 
-    def __repr__(self):
-        attrs = ["spectrum", "energy", "alpha", "beta", "Nra", "Dxy", "K", 
-                "kmesh", "aver", "cross", "relat"]
-
-        repr_dict = {}
-        for a in attrs:
-            repr_dict[a] = getattr(self, a)
-
-        return json.dumps(repr_dict)
-
-    def __str__(self):
-        out_str = self.spectrum + " " \
-                + str(self.kmesh[0]) + " " + str(self.kmesh[1]) + " " + str(self.kmesh[2]) + "\n" \
-                + str(self.energy) + " " \
-                + str(int(self.aver)) + " " + str(int(self.cross)) + " " + str(int(self.relat)) + "\n"
-
-        if not self.aver:
-            out_str += str(self.K[0]) + " " + str(self.K[1]) + " " + str(self.K[2]) + "\n"
-
-        out_str += str(self.beta) + " " + str(self.alpha) + "\n" \
-                + str(self.Nra[0]) + " " + str(self.Nra[1]) + "\n" \
-                + str(self.Dxy[0]) + " " + str(self.Dxy[1]) + "\n"
-
-        return out_str
