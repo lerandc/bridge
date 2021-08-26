@@ -132,7 +132,7 @@ def plot_feff_edge_stack(base_dir, target, save=False, target_dir=".", series_na
     if save:
         p = pathlib.Path(target_dir)
         p.mkdir(parents=True, exist_ok=True)
-        plt.savefig(p.joinpath(series_name + "_xmu_" + target + "_summary.jpg"))
+        plt.savefig(p.joinpath(series_name + "_xmu_" + target + "_summary.jpg"), dpi=300)
     else:
         plt.show()
     plt.close()
