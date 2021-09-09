@@ -17,8 +17,8 @@ def find_and_run_mult_edge(root_dir, rerun=False):
 
         # grab edge and rename input to feff.inp
         # expect filenames of feff_****.inp where **** indicates edge/sim type for structure
-        cur_edge = f_str.split("_", 1)[1][:-4]
-
+        cur_edge = f_str.rsplit("/", 1)[1].split("_", 1)[1][:-4]
+        
         with open(cur_file, "r") as f:
                 lines = f.readlines()
                 rfunc = lambda x, y: x or y

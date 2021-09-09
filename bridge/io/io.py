@@ -137,9 +137,6 @@ def plot_feff_edge_stack(base_dir, target, save=False, target_dir=".", series_na
         plt.show()
     plt.close()
 
-
-
-
 def plot_feff_absorber_dos(base_dir, target, save=False, target_dir="."):
     subfolders = [p for p in pathlib.Path(base_dir).iterdir() if "target_" + target in str(p)]
     if len(subfolders) == 0:
@@ -367,7 +364,7 @@ def make_report(fig_source_dir, outname, pattern="_[0-9]+_[0-9]+_"):
         
     c.save()
 
-def grab_spectra(base_dir, target):
+def grab_spectra(base_dir, target, outfile="xmu.dat"):
     subfolders = [p for p in pathlib.Path(base_dir).iterdir() if "target_" + target in str(p)]
     if len(subfolders) == 0:
         return
@@ -382,13 +379,22 @@ def grab_spectra(base_dir, target):
         edge_dirs = [p for p in f.iterdir() if (p.is_dir()) and not (p.name.startswith("."))]
         for i, e in enumerate(edge_dirs):
             edge = str(e).split("/")[-1]
-            df = pd.read_csv(e.joinpath('xmu.dat'), skiprows=25,delimiter=r"\s+", \
+            if outfile=="xmu.dat":
+                df = pd.read_csv(e.joinpath(outfile), skiprows=25,delimiter=r"\s+", \
                     names=['omega', 'e','k','mu','mu0','chi'])
+                xkey = "omega"
+                ykey = "mu"
+            elif outfile=="eels.dat":
+                df = pd.read_csv(e.joinpath(outfile), skiprows=11,delimiter=r"\s+", \
+                    names=['energy', 'total','atomic-bg','fine-struct'])
+                xkey = "energy"
+                ykey = "total"
+
 
             if edge in avg_dict_y.keys():
-                avg_dict_y[edge] += df["mu"]/num_sites
+                avg_dict_y[edge] += df[ykey]/num_sites
             else:
-                avg_dict_y[edge] = df["mu"]/num_sites
-                avg_dict_x[edge+"_omega"] = df['omega']
+                avg_dict_y[edge] = df[ykey]/num_sites
+                avg_dict_x[edge] = df[xkey]
 
     return avg_dict_x, avg_dict_y
